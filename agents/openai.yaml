@@ -1,0 +1,7 @@
+interface:
+  display_name: "Spec Kit Pipeline"
+  short_description: "Run one feature through a gated Spec Kit workflow from request to implementation."
+  default_prompt: "Use $speckit-pipeline to run a single feature through specify, clarify, plan, tasks, analyze, checklist, and implement, pausing only at blocking gates."
+
+policy:
+  allow_implicit_invocation: false
