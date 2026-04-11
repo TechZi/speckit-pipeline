@@ -1,0 +1,36 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        run: |
+          test -f SKILL.md
+          test -f agents/openai.yaml
+          test -f references/gating-rules.md
+          test -f README.md
+          test -f LICENSE
+          test -f CHANGELOG.md
+          test -f CONTRIBUTING.md
+
+      - name: Validate skill frontmatter
+        run: |
+          grep -q '^---$' SKILL.md
+          grep -q '^name: speckit-pipeline$' SKILL.md
+          grep -q '^description:' SKILL.md
+
+      - name: Validate openai metadata
+        run: |
+          grep -q 'display_name:' agents/openai.yaml
+          grep -q 'short_description:' agents/openai.yaml
+          grep -q 'default_prompt:' agents/openai.yaml
