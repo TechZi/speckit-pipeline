@@ -67,6 +67,28 @@ Use $speckit-pipeline to plan this feature but stop before implementation.
 Use $speckit-pipeline to run one feature through the full workflow and pause only on blocking gates.
 ```
 
+## Pipeline Flow
+
+```mermaid
+flowchart TD
+    A[Intake] --> B[Specify]
+    B --> C{Blocking ambiguity?}
+    C -- Yes --> C1[Pause for user clarification]
+    C -- No --> D[Clarify if needed]
+    D --> E[Plan]
+    E --> F[Tasks]
+    F --> G[Analyze]
+    G --> H{Critical inconsistency?}
+    H -- Yes --> H1[Repair artifacts or pause]
+    H -- No --> I[Checklist if required]
+    I --> J{Planning only?}
+    J -- Yes --> J1[Stop after planning artifacts]
+    J -- No --> K[Implement]
+    K --> L{Verification passes?}
+    L -- No --> L1[Pause on verification failure]
+    L -- Yes --> M[Completed]
+```
+
 ## Design Principles
 
 - One feature only
@@ -137,6 +159,28 @@ cp -R ./* "${CODEX_HOME:-$HOME/.codex}/skills/speckit-pipeline/"
 ```
 
 然后重启 Codex。
+
+### 流程图
+
+```mermaid
+flowchart TD
+    A[需求 intake] --> B[specify]
+    B --> C{是否存在阻塞性歧义?}
+    C -- 是 --> C1[暂停并向用户澄清]
+    C -- 否 --> D[按需 clarify]
+    D --> E[plan]
+    E --> F[tasks]
+    F --> G[analyze]
+    G --> H{是否存在关键制品冲突?}
+    H -- 是 --> H1[修复制品或暂停]
+    H -- 否 --> I[必要时执行 checklist]
+    I --> J{是否只做规划?}
+    J -- 是 --> J1[在规划产物完成后停止]
+    J -- 否 --> K[implement]
+    K --> L{验证是否通过?}
+    L -- 否 --> L1[因验证失败而暂停]
+    L -- 是 --> M[完成]
+```
 
 ### 设计原则
 
