@@ -19,6 +19,7 @@ The format is based on Keep a Changelog, and repository releases follow Semantic
 
 - `SKILL.md` is now a thin Codex wrapper that delegates to the shared pipeline core
 - README now documents single-tool and multi-tool installation flows
+- README now keeps the full project logic, pipeline flow, stage behavior, and usage examples alongside installation docs
 - GitHub Actions validation now checks shared core files, templates, JSON metadata, CLI help, and shell tests
 
 ### Fixed
