@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "tools": {
+    "codex": {
+      "entry": ".agents/skills/speckit-pipeline/SKILL.md",
+      "stageArtifact": ".agents/skills/speckit-{stage}/SKILL.md",
+      "invoke": "$speckit-{stage}",
+      "fallback": "read-artifact"
+    },
+    "claude": {
+      "entry": ".claude/skills/speckit-pipeline/SKILL.md",
+      "stageArtifact": ".claude/skills/speckit-{stage}/SKILL.md",
+      "invoke": "/speckit-{stage}",
+      "fallback": "read-artifact"
+    },
+    "qoder": {
+      "entry": ".qoder/skills/speckit-pipeline/SKILL.md",
+      "stageArtifact": ".qoder/commands/speckit.{stage}.md",
+      "invoke": "/speckit.{stage}",
+      "fallback": "read-artifact"
+    },
+    "cursor": {
+      "entry": ".cursor/skills/speckit-pipeline/SKILL.md",
+      "stageArtifact": ".cursor/skills/speckit-{stage}/SKILL.md",
+      "invoke": "/speckit-{stage}",
+      "fallback": "read-artifact"
+    }
+  },
+  "stages": [
+    "constitution",
+    "specify",
+    "clarify",
+    "plan",
+    "tasks",
+    "analyze",
+    "checklist",
+    "implement"
+  ]
+}
