@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="0.2.0"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+
+usage() {
+  cat <<'EOF'
+speckit-pipeline 0.2.0
+
+Usage:
+  speckit-pipeline install --tool <codex|claude|qoder|cursor|all> [--project DIR] [--force]
+  speckit-pipeline doctor [--project DIR]
+  speckit-pipeline upgrade [--project DIR] [--force]
+  speckit-pipeline uninstall --tool <codex|claude|qoder|cursor> [--project DIR] [--force]
+  speckit-pipeline --help
+
+Defaults:
+  --project defaults to the current directory.
+EOF
+}
+
+fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+info() { printf '%s\n' "$*"; }
+
+project="$(pwd)"
+tool=""
+force="0"
+cmd="${1:-}"
+[ -n "$cmd" ] || { usage; exit 1; }
+shift || true
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --project)
+      [ "$#" -ge 2 ] || fail "--project requires a value"
+      project="$2"
+      shift 2
+      ;;
+    --tool)
+      [ "$#" -ge 2 ] || fail "--tool requires a value"
+      tool="$2"
+      shift 2
+      ;;
+    --force)
+      force="1"
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+done
+
+project="$(CDPATH= cd -- "$project" && pwd)"
+
+case "$tool" in
+  ""|codex|claude|qoder|cursor|all) ;;
+  *) fail "unsupported tool: $tool" ;;
+esac
+
+core_files="pipeline.md adapters.json state-schema.json handoff.md"
+
+entry_for_tool() {
+  case "$1" in
+    codex) printf '.agents/skills/speckit-pipeline/SKILL.md' ;;
+    claude) printf '.claude/skills/speckit-pipeline/SKILL.md' ;;
+    qoder) printf '.qoder/skills/speckit-pipeline/SKILL.md' ;;
+    cursor) printf '.cursor/skills/speckit-pipeline/SKILL.md' ;;
+    *) fail "unsupported tool: $1" ;;
+  esac
+}
+
+stage_artifact_for_tool() {
+  case "$1:$2" in
+    codex:*) printf '.agents/skills/speckit-%s/SKILL.md' "$2" ;;
+    claude:*) printf '.claude/skills/speckit-%s/SKILL.md' "$2" ;;
+    qoder:*) printf '.qoder/commands/speckit.%s.md' "$2" ;;
+    cursor:*) printf '.cursor/skills/speckit-%s/SKILL.md' "$2" ;;
+    *) fail "unsupported tool/stage: $1/$2" ;;
+  esac
+}
+
+copy_file_safe() {
+  src="$1"
+  dst="$2"
+  mkdir -p "$(dirname -- "$dst")"
+  if [ -f "$dst" ]; then
+    if cmp -s "$src" "$dst"; then
+      info "unchanged: ${dst#$project/}"
+      return 0
+    fi
+    if [ "$force" = "1" ]; then
+      cp "$src" "$dst"
+      rm -f "$dst.new"
+      info "overwritten: ${dst#$project/}"
+      return 0
+    fi
+    cp "$src" "$dst.new"
+    info "conflict: ${dst#$project/} differs; wrote ${dst#$project/}.new"
+    return 2
+  fi
+  cp "$src" "$dst"
+  info "created: ${dst#$project/}"
+}
+
+install_core() {
+  mkdir -p "$project/.specify/pipeline"
+  rc=0
+  for f in $core_files; do
+    copy_file_safe "$REPO_ROOT/core/$f" "$project/.specify/pipeline/$f" || rc=$?
+  done
+  config="$project/.specify/pipeline/config.json"
+  tmp="$(mktemp)"
+  cat > "$tmp" <<EOF
+{
+  "version": "$VERSION",
+  "stateStrategy": "feature-local",
+  "preferNativeInvocation": true
+}
+EOF
+  copy_file_safe "$tmp" "$config" || rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
+install_tool() {
+  t="$1"
+  entry="$(entry_for_tool "$t")"
+  copy_file_safe "$REPO_ROOT/templates/$t/SKILL.md" "$project/$entry"
+}
+
+installed_tools() {
+  for t in codex claude qoder cursor; do
+    if [ -f "$project/$(entry_for_tool "$t")" ]; then
+      printf '%s\n' "$t"
+    fi
+  done
+}
+
+cmd_install() {
+  [ -n "$tool" ] || fail "install requires --tool"
+  install_core || true
+  if [ "$tool" = "all" ]; then
+    for t in codex claude qoder cursor; do install_tool "$t" || true; done
+  else
+    install_tool "$tool" || true
+  fi
+}
+
+cmd_upgrade() {
+  install_core || true
+  found="0"
+  for t in $(installed_tools); do
+    found="1"
+    install_tool "$t" || true
+  done
+  [ "$found" = "1" ] || info "no installed wrappers found; run install --tool <tool> first"
+}
+
+cmd_uninstall() {
+  [ -n "$tool" ] || fail "uninstall requires --tool"
+  [ "$tool" != "all" ] || fail "uninstall does not support --tool all"
+  entry="$project/$(entry_for_tool "$tool")"
+  if [ -f "$entry" ]; then
+    rm -f "$entry"
+    info "removed: ${entry#$project/}"
+  else
+    info "not installed: ${entry#$project/}"
+  fi
+}
+
+cmd_doctor() {
+  status=0
+  if [ -d "$project/.specify" ]; then
+    info "ok: .specify exists"
+  else
+    info "missing: .specify (run official specify init first)"
+    status=1
+  fi
+  if [ -d "$project/.specify/pipeline" ]; then
+    info "ok: .specify/pipeline exists"
+  else
+    info "missing: .specify/pipeline (run speckit-pipeline install)"
+    status=1
+  fi
+  for f in $core_files; do
+    if [ -f "$project/.specify/pipeline/$f" ]; then
+      info "ok: .specify/pipeline/$f"
+    else
+      info "missing: .specify/pipeline/$f"
+      status=1
+    fi
+  done
+  installed="$(installed_tools | tr '\n' ' ')"
+  if [ -n "$installed" ]; then
+    info "installed wrappers: $installed"
+  else
+    info "missing: no speckit-pipeline wrappers installed"
+    status=1
+  fi
+  for t in $(installed_tools); do
+    for stage in specify clarify plan tasks analyze checklist implement; do
+      path="$(stage_artifact_for_tool "$t" "$stage")"
+      if [ -f "$project/$path" ]; then
+        info "ok: $t stage artifact $path"
+      else
+        info "missing: $t stage artifact $path"
+        status=1
+      fi
+    done
+  done
+  return "$status"
+}
+
+case "$cmd" in
+  install) cmd_install ;;
+  doctor) cmd_doctor ;;
+  upgrade) cmd_upgrade ;;
+  uninstall) cmd_uninstall ;;
+  --help|-h|help) usage ;;
+  --version|version) printf '%s\n' "$VERSION" ;;
+  *) fail "unknown command: $cmd" ;;
+esac

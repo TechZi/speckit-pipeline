@@ -22,6 +22,17 @@ jobs:
           test -f LICENSE
           test -f CHANGELOG.md
           test -f CONTRIBUTING.md
+          test -f core/pipeline.md
+          test -f core/adapters.json
+          test -f core/state-schema.json
+          test -f core/handoff.md
+          test -x bin/speckit-pipeline
+          test -x install.sh
+          test -x test/run-tests.sh
+          test -f templates/codex/SKILL.md
+          test -f templates/claude/SKILL.md
+          test -f templates/qoder/SKILL.md
+          test -f templates/cursor/SKILL.md
 
       - name: Validate skill frontmatter
         run: |
@@ -29,8 +40,21 @@ jobs:
           grep -q '^name: speckit-pipeline$' SKILL.md
           grep -q '^description:' SKILL.md
 
+      - name: Validate JSON files
+        run: |
+          python3 -m json.tool core/adapters.json >/dev/null
+          python3 -m json.tool core/state-schema.json >/dev/null
+
       - name: Validate openai metadata
         run: |
           grep -q 'display_name:' agents/openai.yaml
           grep -q 'short_description:' agents/openai.yaml
           grep -q 'default_prompt:' agents/openai.yaml
+
+      - name: Validate CLI help
+        run: |
+          bin/speckit-pipeline --help
+
+      - name: Run shell tests
+        run: |
+          bash test/run-tests.sh

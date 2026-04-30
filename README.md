@@ -2,100 +2,146 @@
 
 English | [中文](#中文说明)
 
-`speckit-pipeline` is a Codex skill that orchestrates one concrete feature through the Spec Kit workflow in a disciplined, gated order.
+`speckit-pipeline` runs one concrete feature through the Spec Kit workflow in a disciplined, gated order. Starting with v0.2.0, it can be installed into projects for Codex, Claude Code, Qoder, and Cursor so teams can switch tools without losing workflow state.
 
-It is intentionally narrow: one feature, one pipeline, one set of gates. It does not replace the official Spec Kit skills. It coordinates them.
+It does not replace official Spec Kit commands or skills. It coordinates them and records progress in repository files.
 
 ## What It Does
 
 - Runs one feature through `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`
+- Supports Codex, Claude Code, Qoder, and Cursor wrappers
+- Distinguishes a new feature request from resuming an interrupted feature
+- Stores handoff state in `specs/<feature>/.speckit-pipeline-state.json`
 - Treats artifact consistency and verification as real gates
-- Stops only for true blockers such as missing prerequisites, unresolved ambiguity, conflicting artifacts, or failed verification
-- Produces stage-based progress reporting instead of vague orchestration summaries
-
-## When to Use It
-
-Use this skill when:
-
-- the repository already uses Spec Kit
-- the user wants one feature executed end-to-end with less manual step switching
-- the user wants planning plus implementation, or planning-only with a clean stop before implementation
-
-Do not use it for:
-
-- backlog prioritization across multiple features
-- roadmap planning
-- release management
-- multi-PR orchestration
-- repo-wide tech-debt programs
-
-## Dependencies
-
-This skill assumes the repository already has the official Spec Kit skills available:
-
-- `$speckit-constitution`
-- `$speckit-specify`
-- `$speckit-clarify`
-- `$speckit-plan`
-- `$speckit-tasks`
-- `$speckit-analyze`
-- `$speckit-checklist`
-- `$speckit-implement`
-
-## Repository Layout
-
-- `SKILL.md`: core skill instructions
-- `agents/openai.yaml`: Codex UI metadata
-- `references/gating-rules.md`: gate definitions and completion criteria
+- Avoids `specify integration switch` so multiple tools can share one project safely
 
 ## Install
 
-Copy this directory into your Codex environment skills directory:
+v0.2.0 uses POSIX shell scripts and supports macOS/Linux.
+
+From a checkout of this repository:
 
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/speckit-pipeline"
-cp -R ./* "${CODEX_HOME:-$HOME/.codex}/skills/speckit-pipeline/"
+./bin/speckit-pipeline install --tool codex --project /path/to/project
+./bin/speckit-pipeline install --tool qoder --project /path/to/project
+./bin/speckit-pipeline install --tool all --project /path/to/project
 ```
 
-Then restart Codex.
+From GitHub:
 
-## Example Prompts
+```bash
+curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/install.sh | bash -s -- --tool all --project /path/to/project
+```
+
+To install from a specific branch or tag, set `SPECKIT_PIPELINE_REF`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/install.sh | SPECKIT_PIPELINE_REF=v0.2.0 bash -s -- --tool codex --project /path/to/project
+```
+
+`--project` defaults to the current directory.
+
+## Tool Invocation
+
+After installation, invoke the wrapper supported by your current AI coding tool:
 
 ```text
-Use $speckit-pipeline to implement this feature end-to-end.
-Use $speckit-pipeline to plan this feature but stop before implementation.
-Use $speckit-pipeline to run one feature through the full workflow and pause only on blocking gates.
+Codex:  $speckit-pipeline <request>
+Claude: /speckit-pipeline <request>
+Qoder:  /speckit-pipeline <request>
+Cursor: /speckit-pipeline <request>
 ```
 
-## Pipeline Flow
+## New vs Resume
 
-```mermaid
-flowchart TD
-    A[Intake] --> B[Specify]
-    B --> C{Blocking ambiguity?}
-    C -- Yes --> C1[Pause for user clarification]
-    C -- No --> D[Clarify if needed]
-    D --> E[Plan]
-    E --> F[Tasks]
-    F --> G[Analyze]
-    G --> H{Critical inconsistency?}
-    H -- Yes --> H1[Repair artifacts or pause]
-    H -- No --> I[Checklist if required]
-    I --> J{Planning only?}
-    J -- Yes --> J1[Stop after planning artifacts]
-    J -- No --> K[Implement]
-    K --> L{Verification passes?}
-    L -- No --> L1[Pause on verification failure]
-    L -- Yes --> M[Completed]
+The pipeline starts a new feature when the user provides a concrete new feature request or explicitly says to start/create/build/implement a new feature.
+
+The pipeline resumes when the user asks to continue/resume/接着/继续/恢复 or when no new feature request is present and an incomplete feature state exists.
+
+If an incomplete feature exists and the user input also looks like a new request, the pipeline pauses and asks whether to resume the existing feature or start a new one.
+
+## CLI
+
+```bash
+bin/speckit-pipeline install --tool <codex|claude|qoder|cursor|all> [--project DIR] [--force]
+bin/speckit-pipeline doctor [--project DIR]
+bin/speckit-pipeline upgrade [--project DIR] [--force]
+bin/speckit-pipeline uninstall --tool <codex|claude|qoder|cursor> [--project DIR]
 ```
 
-## Design Principles
+Command behavior:
 
-- One feature only
-- Stage order is mandatory
-- Blocking gates are real
-- Verification is required before claiming completion
-- Output should always tell the user the current stage, artifacts, assumptions, blockers, and next step
+- `install` copies shared core files and the selected wrapper
+- `doctor` verifies `.specify`, shared pipeline files, installed wrappers, and official stage artifacts
+- `upgrade` refreshes shared core files and already installed wrappers
+- `uninstall` removes only the selected wrapper
+
+Safety rules:
+
+- Existing modified files are not overwritten by default
+- Conflicts are written to `<file>.new`
+- `--force` overwrites wrappers and shared core files
+- Feature state and log files are never deleted
+- The installer never runs `specify integration switch`
+- The installer never mutates `.specify/integration.json`
+
+## Installed Layout
+
+```text
+.specify/pipeline/
+  pipeline.md
+  adapters.json
+  state-schema.json
+  handoff.md
+  config.json
+
+.agents/skills/speckit-pipeline/SKILL.md
+.claude/skills/speckit-pipeline/SKILL.md
+.qoder/skills/speckit-pipeline/SKILL.md
+.cursor/skills/speckit-pipeline/SKILL.md
+```
+
+Single-tool users can install only the wrapper they need. Multi-tool users can install `--tool all` and switch between tools using the same feature-local state.
+
+## Doctor
+
+Run:
+
+```bash
+bin/speckit-pipeline doctor --project /path/to/project
+```
+
+`doctor` checks for `.specify`, shared pipeline files, installed wrappers, and the official Spec Kit stage artifacts for installed tools. It checks `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`.
+
+## Upgrade
+
+Run:
+
+```bash
+bin/speckit-pipeline upgrade --project /path/to/project
+```
+
+`upgrade` refreshes `.specify/pipeline/*` and any already installed tool wrappers. It does not install new wrappers unless they already exist in the project. Use `--force` to overwrite local edits.
+
+## Uninstall
+
+Run:
+
+```bash
+bin/speckit-pipeline uninstall --tool qoder --project /path/to/project
+```
+
+`uninstall` removes only the selected wrapper. It keeps shared pipeline files, feature state files, and feature log files.
+
+## Repository Layout
+
+- `SKILL.md`: Codex environment-level wrapper
+- `core/`: shared pipeline instructions and schemas
+- `templates/`: tool-specific wrappers
+- `bin/speckit-pipeline`: shell installer/doctor CLI
+- `install.sh`: GitHub bootstrap installer
+- `references/gating-rules.md`: gate definitions and completion criteria
+- `test/run-tests.sh`: shell integration tests
 
 ## License
 
@@ -103,89 +149,64 @@ This project is licensed under the Apache License 2.0. See `LICENSE`.
 
 ## 中文说明
 
-`speckit-pipeline` 是一个 Codex skill，用来把一个具体功能按照 Spec Kit 的标准流程串起来执行。
+`speckit-pipeline` 用来把一个具体功能按照 Spec Kit 的标准流程串起来执行。v0.2.0 开始，它支持安装到 Codex、Claude Code、Qoder、Cursor 四种工具中，让你在 token 用完或会话中断后切换工具继续工作。
 
-它的定位非常克制：一次只处理一个功能，不替代官方 Spec Kit skills，而是把这些 skills 按照有门禁的顺序组织起来，减少手工一步一步触发的负担。
+它不替代官方 Spec Kit commands 或 skills，而是协调它们，并把进度写入仓库文件。
 
-### 它解决什么问题
+### 安装
 
-- 把单个功能按 `specify -> clarify -> plan -> tasks -> analyze -> checklist -> implement` 的顺序推进
-- 把制品一致性检查和验证结果当成真正的门禁
-- 遇到阻塞问题时暂停，而不是继续带着错误往下放大
-- 每个阶段都输出明确状态，而不是只给模糊总结
-
-### 适用场景
-
-适合：
-
-- 仓库已经接入 Spec Kit
-- 你想把一个功能从需求推进到实现
-- 你希望减少人工切换多个 skill 的步骤
-
-不适合：
-
-- 多功能排期和优先级管理
-- 路线图规划
-- 发布编排
-- 多 PR 协调
-- 仓库级长期技术债治理
-
-### 依赖
-
-这个 skill 依赖仓库中已经存在官方 Spec Kit skills：
-
-- `$speckit-constitution`
-- `$speckit-specify`
-- `$speckit-clarify`
-- `$speckit-plan`
-- `$speckit-tasks`
-- `$speckit-analyze`
-- `$speckit-checklist`
-- `$speckit-implement`
-
-### 仓库结构
-
-- `SKILL.md`：skill 核心规则
-- `agents/openai.yaml`：Codex UI 元数据
-- `references/gating-rules.md`：门禁规则和完成条件
-
-### 安装方式
-
-把当前目录复制到 Codex 环境级 skills 目录：
+v0.2.0 使用 POSIX shell，支持 macOS/Linux。
 
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/speckit-pipeline"
-cp -R ./* "${CODEX_HOME:-$HOME/.codex}/skills/speckit-pipeline/"
+./bin/speckit-pipeline install --tool all --project /path/to/project
 ```
 
-然后重启 Codex。
+或者只安装单个工具：
 
-### 流程图
-
-```mermaid
-flowchart TD
-    A[需求 intake] --> B[specify]
-    B --> C{是否存在阻塞性歧义?}
-    C -- 是 --> C1[暂停并向用户澄清]
-    C -- 否 --> D[按需 clarify]
-    D --> E[plan]
-    E --> F[tasks]
-    F --> G[analyze]
-    G --> H{是否存在关键制品冲突?}
-    H -- 是 --> H1[修复制品或暂停]
-    H -- 否 --> I[必要时执行 checklist]
-    I --> J{是否只做规划?}
-    J -- 是 --> J1[在规划产物完成后停止]
-    J -- 否 --> K[implement]
-    K --> L{验证是否通过?}
-    L -- 否 --> L1[因验证失败而暂停]
-    L -- 是 --> M[完成]
+```bash
+./bin/speckit-pipeline install --tool qoder --project /path/to/project
 ```
 
-### 设计原则
+从 GitHub 安装：
 
-- 一次只处理一个功能
-- 阶段顺序不能跳
-- 阻塞门禁必须真实生效
-- 没有验证结果不能宣称完成
-- 每次输出都要包含当前阶段、产物、假设、阻塞和下一步
+```bash
+curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/install.sh | bash -s -- --tool all --project /path/to/project
+```
+
+### 调用方式
+
+```text
+Codex:  $speckit-pipeline <需求>
+Claude: /speckit-pipeline <需求>
+Qoder:  /speckit-pipeline <需求>
+Cursor: /speckit-pipeline <需求>
+```
+
+### 新需求与恢复
+
+如果输入是一个新的明确需求，pipeline 会创建并推进新 feature。
+
+如果用户说“继续 / 恢复 / resume”，或者当前 feature 有未完成 state 且用户没有提供新需求，pipeline 会从上次阶段继续。
+
+如果既存在未完成 feature，用户输入又像新需求，pipeline 必须暂停并询问是继续旧 feature 还是启动新 feature。
+
+### 安全规则
+
+- 默认不覆盖用户改过的文件
+- 冲突写入 `<file>.new`
+- `--force` 才覆盖 wrapper/core
+- 不删除 feature state/log
+- 不执行 `specify integration switch`
+- 不修改 `.specify/integration.json`
+
+### 诊断、升级与卸载
+
+```bash
+bin/speckit-pipeline doctor --project /path/to/project
+bin/speckit-pipeline upgrade --project /path/to/project
+bin/speckit-pipeline uninstall --tool qoder --project /path/to/project
+```
+
+`doctor` 会检查 `.specify`、共享 pipeline 文件、已安装 wrapper，以及 `specify`、`clarify`、`plan`、`tasks`、`analyze`、`checklist`、`implement` 官方阶段产物。
+
+`upgrade` 只刷新共享 core 和已经安装的 wrapper；`uninstall` 只移除指定工具的 wrapper，不删除 feature state/log。

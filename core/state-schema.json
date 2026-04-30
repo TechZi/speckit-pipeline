@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "speckit-pipeline feature state",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "feature",
+    "currentStage",
+    "completedStages",
+    "nextStage",
+    "status",
+    "planningOnly",
+    "lastTool",
+    "lastUpdated",
+    "artifacts",
+    "assumptions",
+    "blockers",
+    "verification"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "0.2.0" },
+    "feature": { "type": "string", "minLength": 1 },
+    "branch": { "type": "string" },
+    "currentStage": {
+      "type": "string",
+      "enum": ["intake", "specify", "clarify", "plan", "tasks", "analyze", "checklist", "implement", "completed", "paused"]
+    },
+    "completedStages": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "nextStage": {
+      "type": "string",
+      "enum": ["intake", "specify", "clarify", "plan", "tasks", "analyze", "checklist", "implement", "none"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["new", "in_progress", "paused", "blocked", "completed"]
+    },
+    "planningOnly": { "type": "boolean" },
+    "lastTool": { "type": "string", "enum": ["codex", "claude", "qoder", "cursor", "unknown"] },
+    "lastUpdated": { "type": "string" },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verification": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}
