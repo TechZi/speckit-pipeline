@@ -210,7 +210,11 @@ Run:
 bin/speckit-pipeline doctor --project /path/to/project
 ```
 
-`doctor` checks for `.specify`, shared pipeline files, installed wrappers, and the official Spec Kit stage artifacts for installed tools. It checks `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`.
+Use `doctor` when you want to confirm that a target project is ready to run the pipeline before starting or resuming a feature. It is also the quickest check after installing a new wrapper, switching tools, upgrading Spec Kit in the target project, or debugging a missing-prerequisite pause.
+
+`doctor` is read-only. It checks `.specify`, shared pipeline files, installed pipeline wrappers, and the official Spec Kit stage artifacts for every installed wrapper. It checks `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`.
+
+The command prints `ok:` lines for files it finds and `missing:` lines for prerequisites that are absent. A missing stage artifact usually means the underlying official Spec Kit integration for that tool has not been installed in the project yet. For example, installing the Qoder pipeline wrapper does not create official `.qoder/commands/speckit.*.md` files; those come from initializing the project with the official `qodercli` integration.
 
 ## Upgrade
 
@@ -220,7 +224,11 @@ Run:
 bin/speckit-pipeline upgrade --project /path/to/project
 ```
 
-`upgrade` refreshes `.specify/pipeline/*` and any already installed tool wrappers. It does not install new wrappers unless they already exist in the project. Use `--force` to overwrite local edits.
+Use `upgrade` after pulling a newer `speckit-pipeline` release and when you want an existing target project to receive the latest shared pipeline core and wrapper templates. It is intended for already installed projects, not for adding a new tool integration.
+
+`upgrade` refreshes `.specify/pipeline/*` and any already installed tool wrappers. It does not install new wrappers unless they already exist in the project, and it does not install official Spec Kit stage artifacts for a tool. Use `install --tool <tool>` when adding a new pipeline wrapper, and use the official Spec Kit initializer when adding a new underlying tool integration.
+
+By default, `upgrade` preserves local edits: if a destination file differs, it writes the new version to `<file>.new` instead of overwriting the existing file. Use `--force` only when you want to replace local pipeline core files and wrapper templates with the version from this repository. Feature state and log files are never deleted.
 
 ## Uninstall
 
@@ -385,6 +393,12 @@ bin/speckit-pipeline upgrade --project /path/to/project
 bin/speckit-pipeline uninstall --tool qoder --project /path/to/project
 ```
 
-`doctor` 会检查 `.specify`、共享 pipeline 文件、已安装 wrapper，以及 `specify`、`clarify`、`plan`、`tasks`、`analyze`、`checklist`、`implement` 官方阶段产物。
+`doctor` 用于在开始或恢复一个 feature 前确认目标项目是否已经具备运行 pipeline 的前置条件。安装新 wrapper、切换工具、升级目标项目里的 Spec Kit，或者排查 “missing prerequisite” 这类暂停时，都应该先运行它。
 
-`upgrade` 只刷新共享 core 和已经安装的 wrapper；`uninstall` 只移除指定工具的 wrapper，不删除 feature state/log。
+`doctor` 是只读检查。它会检查 `.specify`、共享 pipeline 文件、已安装 pipeline wrapper，以及每个已安装 wrapper 对应的官方 Spec Kit 阶段产物，覆盖 `specify`、`clarify`、`plan`、`tasks`、`analyze`、`checklist`、`implement`。输出里的 `ok:` 表示文件存在，`missing:` 表示缺少前置条件。缺少阶段产物通常说明该工具的官方 Spec Kit integration 还没有装进目标项目。例如，安装 Qoder pipeline wrapper 不会生成官方 `.qoder/commands/speckit.*.md`；这些文件需要通过官方 `qodercli` integration 初始化得到。
+
+`upgrade` 用于在拉取新版 `speckit-pipeline` 后，把已经安装过 pipeline 的目标项目刷新到最新共享 core 和 wrapper 模板。它适合升级既有安装，不用于新增工具 integration。
+
+`upgrade` 会刷新 `.specify/pipeline/*` 和已经存在的 wrapper。它不会为未安装的工具新增 wrapper，也不会安装某个工具的官方 Spec Kit 阶段产物。默认情况下，如果目标文件有本地修改，新的版本会写到 `<file>.new`，不会直接覆盖；只有带 `--force` 时才会覆盖共享 core 和 wrapper。feature state/log 不会被删除。
+
+`uninstall` 只移除指定工具的 wrapper，不删除共享 pipeline 文件，也不删除 feature state/log。
