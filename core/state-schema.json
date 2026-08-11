@@ -15,15 +15,16 @@
     "artifacts",
     "assumptions",
     "blockers",
-    "verification"
+    "verification",
+    "convergence"
   ],
   "properties": {
-    "schemaVersion": { "const": "0.2.0" },
+    "schemaVersion": { "const": "0.3.0" },
     "feature": { "type": "string", "minLength": 1 },
     "branch": { "type": "string" },
     "currentStage": {
       "type": "string",
-      "enum": ["intake", "specify", "clarify", "plan", "tasks", "analyze", "checklist", "implement", "completed", "paused"]
+      "enum": ["intake", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "completed", "paused"]
     },
     "completedStages": {
       "type": "array",
@@ -31,7 +32,7 @@
     },
     "nextStage": {
       "type": "string",
-      "enum": ["intake", "specify", "clarify", "plan", "tasks", "analyze", "checklist", "implement", "none"]
+      "enum": ["intake", "specify", "clarify", "plan", "checklist", "tasks", "analyze", "implement", "converge", "none"]
     },
     "status": {
       "type": "string",
@@ -55,6 +56,19 @@
     "verification": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "convergence": {
+      "type": "object",
+      "required": ["passes", "lastOutcome", "tasksAppended"],
+      "properties": {
+        "passes": { "type": "integer", "minimum": 0 },
+        "lastOutcome": {
+          "type": "string",
+          "enum": ["not_run", "tasks_appended", "converged"]
+        },
+        "tasksAppended": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

@@ -2,13 +2,13 @@
 
 English | [中文](#中文说明)
 
-`speckit-pipeline` runs one concrete feature through the Spec Kit workflow in a disciplined, gated order. Starting with v0.2.0, it can be installed into projects for Codex, Claude Code, Qoder, and Cursor so teams can switch tools without losing workflow state.
+`speckit-pipeline` runs one concrete feature through the Spec Kit workflow in a disciplined, gated order. Starting with v0.3.0, it follows the full Spec Kit convergence cycle and can be installed into projects for Codex, Claude Code, Qoder, and Cursor so teams can switch tools without losing workflow state.
 
 It does not replace official Spec Kit commands or skills. It coordinates them and records progress in repository files.
 
 ## What It Does
 
-- Runs one feature through `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`
+- Runs one feature through `specify`, `clarify`, `plan`, `checklist`, `tasks`, `analyze`, `implement`, and `converge`
 - Supports Codex, Claude Code, Qoder, and Cursor wrappers
 - Distinguishes a new feature request from resuming an interrupted feature
 - Stores handoff state in `specs/<feature>/.speckit-pipeline-state.json`
@@ -41,16 +41,17 @@ The pipeline coordinates these stages:
 - `specify`
 - `clarify`
 - `plan`
+- `checklist`
 - `tasks`
 - `analyze`
-- `checklist`
 - `implement`
+- `converge`
 
 It does not run `specify init`, `specify integration switch`, or mutate `.specify/integration.json`.
 
 ## Install
 
-v0.2.0 uses POSIX shell scripts and supports macOS/Linux.
+v0.3.0 uses POSIX shell scripts and supports macOS/Linux.
 
 From a checkout of this repository:
 
@@ -69,7 +70,7 @@ curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/instal
 To install from a specific branch or tag, set `SPECKIT_PIPELINE_REF`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/install.sh | SPECKIT_PIPELINE_REF=v0.2.0 bash -s -- --tool codex --project /path/to/project
+curl -fsSL https://raw.githubusercontent.com/TechZi/speckit-pipeline/main/install.sh | SPECKIT_PIPELINE_REF=v0.3.0 bash -s -- --tool codex --project /path/to/project
 ```
 
 `--project` defaults to the current directory.
@@ -111,17 +112,20 @@ flowchart TD
     C -- Yes --> C1[Pause for user clarification]
     C -- No --> D[Clarify if needed]
     D --> E[Plan]
-    E --> F[Tasks]
-    F --> G[Analyze]
-    G --> H{Critical inconsistency?}
-    H -- Yes --> H1[Repair artifacts or pause]
-    H -- No --> I[Checklist if required]
-    I --> J{Planning only?}
+    E --> F[Checklist if required]
+    F --> G[Tasks]
+    G --> H[Analyze]
+    H --> I{Critical inconsistency?}
+    I -- Yes --> I1[Repair artifacts or pause]
+    I -- No --> J{Planning only?}
     J -- Yes --> J1[Stop after planning artifacts]
     J -- No --> K[Implement]
     K --> L{Verification passes?}
     L -- No --> L1[Pause on verification failure]
-    L -- Yes --> M[Completed]
+    L -- Yes --> M[Converge]
+    M --> N{Remaining tasks appended?}
+    N -- Yes --> K
+    N -- No --> O[Completed]
 ```
 
 ## Stage Behavior
@@ -132,10 +136,11 @@ The pipeline is intentionally narrow: one feature, one stage order, one set of g
 - `specify`: run the official Spec Kit specification stage and record the feature directory
 - `clarify`: resolve material ambiguity before planning; skip only when assumptions are safe
 - `plan`: generate the technical plan against the real repository constraints
+- `checklist`: validate specification quality after planning and before task generation when required
 - `tasks`: create dependency-aware implementation tasks
 - `analyze`: check cross-artifact consistency before implementation
-- `checklist`: run when required by project policy, feature risk, or the user
 - `implement`: execute only after prior gates are coherent, then run verification
+- `converge`: compare implementation with the feature artifacts; return to implement when remaining tasks are appended
 
 The pipeline pauses instead of continuing when prerequisites are missing, ambiguity blocks planning, artifacts conflict, the feature needs to be split, or verification fails and cannot be repaired confidently.
 
@@ -148,7 +153,7 @@ specs/<feature>/.speckit-pipeline-state.json
 specs/<feature>/.speckit-pipeline-log.md
 ```
 
-The state file records the current stage, completed stages, next stage, active tool, assumptions, blockers, artifacts, and verification results. This lets Codex, Claude Code, Qoder, and Cursor resume from repository files instead of chat history.
+The state file records the current stage, completed stages, next stage, active tool, assumptions, blockers, artifacts, verification results, and convergence passes. This lets Codex, Claude Code, Qoder, and Cursor resume from repository files instead of chat history. Existing v0.2.0 state is migrated in place without discarding progress.
 
 ## Design Principles
 
@@ -156,7 +161,7 @@ The state file records the current stage, completed stages, next stage, active t
 - Stage order is mandatory
 - Blocking gates are real
 - Official Spec Kit artifacts remain the source of truth
-- Verification is required before claiming implementation complete
+- Verification and a clean convergence result are required before claiming implementation complete
 - Every handoff should name the current stage, artifacts, assumptions, blockers, and next step
 
 ## CLI
@@ -212,7 +217,7 @@ bin/speckit-pipeline doctor --project /path/to/project
 
 Use `doctor` when you want to confirm that a target project is ready to run the pipeline before starting or resuming a feature. It is also the quickest check after installing a new wrapper, switching tools, upgrading Spec Kit in the target project, or debugging a missing-prerequisite pause.
 
-`doctor` is read-only. It checks `.specify`, shared pipeline files, installed pipeline wrappers, and the official Spec Kit stage artifacts for every installed wrapper. It checks `specify`, `clarify`, `plan`, `tasks`, `analyze`, `checklist`, and `implement`.
+`doctor` is read-only. It checks `.specify`, shared pipeline files, installed pipeline wrappers, and the official Spec Kit stage artifacts for every installed wrapper. It checks `specify`, `clarify`, `plan`, `checklist`, `tasks`, `analyze`, `implement`, and `converge`.
 
 The command prints `ok:` lines for files it finds and `missing:` lines for prerequisites that are absent. A missing stage artifact usually means the underlying official Spec Kit integration for that tool has not been installed in the project yet. For example, installing the Qoder pipeline wrapper does not create official `.qoder/commands/speckit.*.md` files; those come from initializing the project with the official `qodercli` integration.
 
@@ -256,13 +261,13 @@ This project is licensed under the Apache License 2.0. See `LICENSE`.
 
 ## 中文说明
 
-`speckit-pipeline` 用来把一个具体功能按照 Spec Kit 的标准流程串起来执行。v0.2.0 开始，它支持安装到 Codex、Claude Code、Qoder、Cursor 四种工具中，让你在 token 用完或会话中断后切换工具继续工作。
+`speckit-pipeline` 用来把一个具体功能按照 Spec Kit 的标准流程串起来执行。v0.3.0 开始，它覆盖完整的 Spec Kit 收敛闭环，并支持安装到 Codex、Claude Code、Qoder、Cursor 四种工具中，让你在 token 用完或会话中断后切换工具继续工作。
 
 它不替代官方 Spec Kit commands 或 skills，而是协调它们，并把进度写入仓库文件。
 
 ### 安装
 
-v0.2.0 使用 POSIX shell，支持 macOS/Linux。
+v0.3.0 使用 POSIX shell，支持 macOS/Linux。
 
 ```bash
 ./bin/speckit-pipeline install --tool all --project /path/to/project
@@ -332,17 +337,20 @@ flowchart TD
     C -- 是 --> C1[暂停并向用户澄清]
     C -- 否 --> D[按需 clarify]
     D --> E[plan]
-    E --> F[tasks]
-    F --> G[analyze]
-    G --> H{是否存在关键制品冲突?}
-    H -- 是 --> H1[修复制品或暂停]
-    H -- 否 --> I[必要时执行 checklist]
-    I --> J{是否只做规划?}
+    E --> F[必要时执行 checklist]
+    F --> G[tasks]
+    G --> H[analyze]
+    H --> I{是否存在关键制品冲突?}
+    I -- 是 --> I1[修复制品或暂停]
+    I -- 否 --> J{是否只做规划?}
     J -- 是 --> J1[在规划产物完成后停止]
     J -- 否 --> K[implement]
     K --> L{验证是否通过?}
     L -- 否 --> L1[因验证失败而暂停]
-    L -- 是 --> M[完成]
+    L -- 是 --> M[converge]
+    M --> N{是否追加剩余任务?}
+    N -- 是 --> K
+    N -- 否 --> O[完成]
 ```
 
 ### 阶段逻辑
@@ -351,10 +359,11 @@ flowchart TD
 - `specify`：执行官方 Spec Kit 规格阶段，记录 feature 目录
 - `clarify`：只在关键歧义会影响计划或实现时运行
 - `plan`：基于真实仓库约束生成技术计划
+- `checklist`：按需在计划后、任务拆分前验证规格质量
 - `tasks`：生成可执行、带依赖关系的任务列表
 - `analyze`：实现前检查跨制品一致性
-- `checklist`：在项目规范、功能风险或用户要求时运行
 - `implement`：前置门禁通过后才实现，并记录验证结果
+- `converge`：对照 feature 制品检查实现完整性；若追加任务则返回 implement，直到收敛
 
 ### 状态与交接
 
@@ -395,7 +404,7 @@ bin/speckit-pipeline uninstall --tool qoder --project /path/to/project
 
 `doctor` 用于在开始或恢复一个 feature 前确认目标项目是否已经具备运行 pipeline 的前置条件。安装新 wrapper、切换工具、升级目标项目里的 Spec Kit，或者排查 “missing prerequisite” 这类暂停时，都应该先运行它。
 
-`doctor` 是只读检查。它会检查 `.specify`、共享 pipeline 文件、已安装 pipeline wrapper，以及每个已安装 wrapper 对应的官方 Spec Kit 阶段产物，覆盖 `specify`、`clarify`、`plan`、`tasks`、`analyze`、`checklist`、`implement`。输出里的 `ok:` 表示文件存在，`missing:` 表示缺少前置条件。缺少阶段产物通常说明该工具的官方 Spec Kit integration 还没有装进目标项目。例如，安装 Qoder pipeline wrapper 不会生成官方 `.qoder/commands/speckit.*.md`；这些文件需要通过官方 `qodercli` integration 初始化得到。
+`doctor` 是只读检查。它会检查 `.specify`、共享 pipeline 文件、已安装 pipeline wrapper，以及每个已安装 wrapper 对应的官方 Spec Kit 阶段产物，覆盖 `specify`、`clarify`、`plan`、`checklist`、`tasks`、`analyze`、`implement`、`converge`。输出里的 `ok:` 表示文件存在，`missing:` 表示缺少前置条件。缺少阶段产物通常说明该工具的官方 Spec Kit integration 还没有装进目标项目。例如，安装 Qoder pipeline wrapper 不会生成官方 `.qoder/commands/speckit.*.md`；这些文件需要通过官方 `qodercli` integration 初始化得到。
 
 `upgrade` 用于在拉取新版 `speckit-pipeline` 后，把已经安装过 pipeline 的目标项目刷新到最新共享 core 和 wrapper 模板。它适合升级既有安装，不用于新增工具 integration。
 

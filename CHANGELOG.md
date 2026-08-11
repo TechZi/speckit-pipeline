@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and repository releases follow Semantic Versioning.
 
+## [0.3.0] - 2026-08-11
+
+### Added
+
+- Official Spec Kit `converge` stage support for Codex, Claude Code, Qoder, and Cursor
+- Implementation/convergence loop that returns to `implement` when convergence appends tasks
+- Convergence counters and outcomes in the feature-local state schema
+- Safe in-place migration guidance for v0.2.0 feature state
+- Doctor and integration-test coverage for the required converge artifact
+
+### Changed
+
+- Reordered `checklist` to run after `plan` and before `tasks`, matching the Spec Kit 0.16.1 full workflow
+- Require both repository verification and a clean convergence result before implementation completion
+- Updated skill trigger metadata, wrappers, documentation, and CLI version to v0.3.0
+
 ## [0.2.0] - 2026-04-30
 
 ### Added

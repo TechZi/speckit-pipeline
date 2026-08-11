@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-speckit-pipeline 0.2.0
+speckit-pipeline 0.3.0
 
 Usage:
   speckit-pipeline install --tool <codex|claude|qoder|cursor|all> [--project DIR] [--force]
@@ -205,7 +205,7 @@ cmd_doctor() {
     status=1
   fi
   for t in $(installed_tools); do
-    for stage in specify clarify plan tasks analyze checklist implement; do
+    for stage in specify clarify plan checklist tasks analyze implement converge; do
       path="$(stage_artifact_for_tool "$t" "$stage")"
       if [ -f "$project/$path" ]; then
         info "ok: $t stage artifact $path"
