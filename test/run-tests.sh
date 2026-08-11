@@ -5,7 +5,7 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 CLI="$ROOT/bin/speckit-pipeline"
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
-PIPELINE_STAGES="specify clarify plan tasks analyze checklist implement"
+PIPELINE_STAGES="specify clarify plan checklist tasks analyze implement converge"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 assert_file() { [ -f "$1" ] || fail "expected file: $1"; }
@@ -41,6 +41,7 @@ add_codex_artifacts "$p"
 "$CLI" install --tool codex --project "$p" >/tmp/speckit-test.out
 assert_file "$p/.agents/skills/speckit-pipeline/SKILL.md"
 assert_file "$p/.specify/pipeline/pipeline.md"
+assert_contains "$p/.specify/pipeline/config.json" '"version": "0.3.0"'
 "$CLI" doctor --project "$p" >/tmp/speckit-test.out
 
 p="$(make_project qoder)"
@@ -81,7 +82,7 @@ fi
 assert_contains /tmp/speckit-test.out "missing: codex stage artifact"
 
 p="$(make_project missing-optional-stages)"
-for s in specify plan tasks analyze implement; do
+for s in specify plan tasks analyze implement converge; do
   mkdir -p "$p/.agents/skills/speckit-$s"
   printf -- '---\nname: speckit-%s\n---\n' "$s" > "$p/.agents/skills/speckit-$s/SKILL.md"
 done
@@ -91,6 +92,17 @@ if "$CLI" doctor --project "$p" >/tmp/speckit-test.out 2>&1; then
 fi
 assert_contains /tmp/speckit-test.out "missing: codex stage artifact .agents/skills/speckit-clarify/SKILL.md"
 assert_contains /tmp/speckit-test.out "missing: codex stage artifact .agents/skills/speckit-checklist/SKILL.md"
+
+p="$(make_project missing-converge)"
+for s in specify clarify plan checklist tasks analyze implement; do
+  mkdir -p "$p/.agents/skills/speckit-$s"
+  printf -- '---\nname: speckit-%s\n---\n' "$s" > "$p/.agents/skills/speckit-$s/SKILL.md"
+done
+"$CLI" install --tool codex --project "$p" >/tmp/speckit-test.out
+if "$CLI" doctor --project "$p" >/tmp/speckit-test.out 2>&1; then
+  fail "doctor should fail without converge artifact"
+fi
+assert_contains /tmp/speckit-test.out "missing: codex stage artifact .agents/skills/speckit-converge/SKILL.md"
 
 p="$(make_project conflict)"
 add_codex_artifacts "$p"
@@ -113,7 +125,7 @@ assert_file "$p/specs/001-demo/.speckit-pipeline-state.json"
 assert_file "$p/specs/001-demo/.speckit-pipeline-log.md"
 
 "$CLI" --help >/tmp/speckit-test.out
-assert_contains /tmp/speckit-test.out "speckit-pipeline 0.2.0"
+assert_contains /tmp/speckit-test.out "speckit-pipeline 0.3.0"
 
 p="$TMP_ROOT/piped-install"
 mkdir -p "$p/bin" "$p/fakebin"

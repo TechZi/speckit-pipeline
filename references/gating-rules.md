@@ -100,6 +100,18 @@ Continue if:
 - the plan is compatible with the real repo constraints
 - major implementation choices are explicit
 
+### Stage: checklist
+
+Run this gate after plan and before tasks when required by project policy, feature risk, or the user.
+
+Pause if:
+- required quality items from constitution or project policy are missing
+- the feature is high-impact and lacks mandatory review coverage
+
+Continue if:
+- checklist findings are advisory rather than required
+- mandatory gaps have been repaired before task generation
+
 ### Stage: tasks
 
 Pause if:
@@ -123,15 +135,6 @@ Continue if:
 - findings are minor and do not threaten correctness
 - the inconsistency is already repaired before implementation begins
 
-### Stage: checklist
-
-Pause if:
-- required quality items from constitution or project policy are missing
-- the feature is high-impact and lacks mandatory review coverage
-
-Continue if:
-- checklist findings are advisory rather than required
-
 ### Stage: implement
 
 Pause if:
@@ -143,6 +146,21 @@ Pause if:
 Continue if:
 - the code changes align with the approved artifacts
 - required verification passes
+
+Passing implement verification advances to converge; it does not complete the pipeline.
+
+### Stage: converge
+
+Pause if:
+- the official converge artifact is missing
+- convergence cannot assess the feature safely
+- convergence reports a blocker that cannot be translated into actionable tasks
+
+Continue if:
+- converge appends remaining tasks, in which case return to implement
+- converge reports that the implementation satisfies the feature artifacts
+
+Complete only after repository verification passes and converge reports a clean result.
 
 ## 4. Verification rules
 
@@ -207,6 +225,7 @@ The pipeline is complete for one feature only when one of these is true:
 - required gates have passed
 - implementation is finished or intentionally skipped because the user asked for planning-only mode
 - required verification has been run
+- for implementation mode, converge reports a clean result after the final verification pass
 - final status is clearly reported
 
 ### Controlled pause

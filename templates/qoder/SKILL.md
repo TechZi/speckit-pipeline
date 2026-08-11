@@ -1,6 +1,6 @@
 ---
 name: speckit-pipeline
-description: Run one Spec Kit feature through a gated, cross-tool pipeline that can resume across Codex, Claude Code, Qoder, and Cursor.
+description: Run or resume one Spec Kit feature through a gated, cross-tool workflow with planning, implementation, verification, and convergence across Codex, Claude Code, Qoder, and Cursor. Use when a user wants end-to-end feature delivery, planning-only execution, or continuation of an interrupted Spec Kit feature.
 ---
 
 # Speckit Pipeline

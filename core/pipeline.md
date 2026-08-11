@@ -1,4 +1,4 @@
-# Speckit Pipeline Core v0.2.0
+# Speckit Pipeline Core v0.3.0
 
 This is the shared pipeline core used by Codex, Claude Code, Qoder, and Cursor wrappers.
 The wrapper that invoked this file declares the current adapter name.
@@ -8,7 +8,7 @@ The wrapper that invoked this file declares the current adapter name.
 Run exactly one concrete feature through a gated Spec Kit workflow:
 
 ```text
-intake -> specify -> clarify -> plan -> tasks -> analyze -> checklist -> implement
+intake -> specify -> clarify -> plan -> checklist -> tasks -> analyze -> implement -> converge
 ```
 
 The pipeline does not replace official Spec Kit commands or skills. It coordinates them, records progress in repository files, and makes cross-tool handoff reliable.
@@ -54,7 +54,7 @@ specs/<feature>/.speckit-pipeline-state.json
 specs/<feature>/.speckit-pipeline-log.md
 ```
 
-The state file must use schema version `0.2.0` and include:
+The state file must use schema version `0.3.0` and include:
 
 - feature
 - branch when known
@@ -69,8 +69,16 @@ The state file must use schema version `0.2.0` and include:
 - assumptions
 - blockers
 - verification
+- convergence
 
 Update state and log after every stage boundary and before any planned handoff.
+
+When resuming a `0.2.0` state file, migrate it in place without discarding progress:
+
+1. Change `schemaVersion` to `0.3.0`.
+2. Add `convergence` with `passes: 0`, `lastOutcome: "not_run"`, and `tasksAppended: 0`.
+3. Preserve all existing stage, artifact, assumption, blocker, and verification data.
+4. Recalculate `nextStage` from the artifacts and current implementation state. Do not mark an implementation complete until convergence succeeds.
 
 ## Adapter resolution
 
@@ -105,6 +113,10 @@ Run clarify only when material ambiguity could change plan or implementation. If
 
 Run the official plan stage. Confirm the plan respects the repository constitution and real project constraints.
 
+### checklist
+
+Run checklist after plan and before tasks when the feature is high-impact, the project constitution requires it, or the user asks for stronger pre-implementation review. Resolve mandatory checklist gaps before generating tasks.
+
 ### tasks
 
 Run the official tasks stage. Confirm tasks are dependency-aware and actionable.
@@ -113,13 +125,24 @@ Run the official tasks stage. Confirm tasks are dependency-aware and actionable.
 
 Run analyze before implementation. Critical inconsistencies block implementation until repaired.
 
-### checklist
-
-Run checklist when the feature is high-impact, the project constitution requires it, or the user asks for stronger pre-implementation review.
+If `planningOnly` is true, stop after the planning artifacts and analyze gate are complete. Report planning-only completion without running implement or converge.
 
 ### implement
 
-Implement only after specify, plan, tasks, and analyze are coherent. Run the repository's required verification stack and record results.
+Implement only after specify, plan, tasks, and analyze are coherent. Run the repository's required verification stack and record results. After a successful implementation pass, set `nextStage` to `converge`.
+
+When returning from convergence with appended tasks, run implement again against the updated `tasks.md`, then repeat repository verification before returning to converge.
+
+### converge
+
+Run the official Spec Kit converge stage after every successful implementation pass.
+
+- Increment `convergence.passes` for each converge run.
+- If converge appends tasks, record `lastOutcome: "tasks_appended"`, add the appended task count to `tasksAppended`, and set `nextStage` to `implement`.
+- If converge reports clean convergence, record `lastOutcome: "converged"`, set `nextStage` to `none`, and mark the feature completed.
+- If converge cannot assess the feature safely, pause with the exact blocker.
+
+Never mark an implementation complete merely because tests pass. Completion requires both successful repository verification and a clean converge result.
 
 ## Reporting contract
 
@@ -132,4 +155,4 @@ At every stage boundary, report:
 - Risks or blockers
 - Exact next step
 
-Never claim official Spec Kit outputs were produced unless they were actually produced. Never claim implementation completion without verification results.
+Never claim official Spec Kit outputs were produced unless they were actually produced. Never claim implementation completion without verification results and a clean converge result.
